@@ -1,0 +1,16 @@
+ward_id,area_name,lat,lon,green_cover_score_1_to_5,tin_roof_pct,elderly_children_pct,low_income_score,pop_density_km2
+DR,Devaraja Mohalla / Fort Area,12.307,76.653,2,35.0,28.0,0.65,32000
+CR,Chamaraja Mohalla / Mandi Mohalla,12.316,76.65,2,42.0,30.0,0.7,38000
+KR,Krishnaraja Mohalla / Agrahara,12.295,76.65,3,25.0,26.0,0.45,24000
+NR,N.R. Mohalla / Ashoka Road,12.328,76.665,3,38.0,27.0,0.6,28000
+NZ,Nazarbad / Chamundi Hill Road,12.298,76.678,2,30.0,25.0,0.55,26000
+LP,Lakshmipuram / Vontikoppal,12.302,76.639,3,22.0,24.0,0.4,22000
+SP,Saraswathipuram / Contour Road,12.302,76.624,4,15.0,22.0,0.3,18000
+JL,Jayalakshmipuram / University,12.316,76.62,4,12.0,20.0,0.25,16000
+KN,Kuvempunagar / Dattagalli,12.275,76.625,3,28.0,24.0,0.5,20000
+VJ,Vijayanagar / Industrial Suburb,12.33,76.592,2,32.0,26.5,0.58,25000
+GK,Gokulam / CFTRI Area,12.328,76.635,5,10.0,19.0,0.2,14000
+HB,Hebbal / Industrial Area,12.36,76.635,3,40.0,29.0,0.62,22000
+SRP,Srirampura / Bannimantap,12.34,76.662,2,45.0,31.0,0.72,30000
+HG,Hootagalli / Metagalli,12.36,76.585,3,48.0,32.0,0.75,20000
+BG,Bogadi / J.P. Nagar,12.27,76.59,4,20.0,23.0,0.42,15000

@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 app = FastAPI(title="Cool Block Commander — XGBoost Integrated Backend")
@@ -24,6 +26,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 WARDS_CSV = os.path.join(DATA_DIR, "mumbai_24_wards_master.csv")
+MYSORE_WARDS_CSV = os.path.join(DATA_DIR, "mysore_wards_master.csv")
 SQLITE_DB = os.path.join(DATA_DIR, "mcgm_portal.db")
 XGB_MODEL_PATH = os.path.join(BASE_DIR, "xgb_wbgt_5d.joblib")
 
@@ -98,6 +101,24 @@ def init_databases():
         ("T", "Mulund East & West", 19.1720, 72.9520, 1, 24.0, 23.5, 0.36, 30000),
     ]
 
+    mysore_wards_master = [
+        ("DR", "Devaraja Mohalla / Fort Area", 12.3070, 76.6530, 2, 35.0, 28.0, 0.65, 32000),
+        ("CR", "Chamaraja Mohalla / Mandi Mohalla", 12.3160, 76.6500, 2, 42.0, 30.0, 0.70, 38000),
+        ("KR", "Krishnaraja Mohalla / Agrahara", 12.2950, 76.6500, 3, 25.0, 26.0, 0.45, 24000),
+        ("NR", "N.R. Mohalla / Ashoka Road", 12.3280, 76.6650, 3, 38.0, 27.0, 0.60, 28000),
+        ("NZ", "Nazarbad / Chamundi Hill Road", 12.2980, 76.6780, 2, 30.0, 25.0, 0.55, 26000),
+        ("LP", "Lakshmipuram / Vontikoppal", 12.3020, 76.6390, 3, 22.0, 24.0, 0.40, 22000),
+        ("SP", "Saraswathipuram / Contour Road", 12.3020, 76.6240, 4, 15.0, 22.0, 0.30, 18000),
+        ("JL", "Jayalakshmipuram / University", 12.3160, 76.6200, 4, 12.0, 20.0, 0.25, 16000),
+        ("GK", "Gokulam / CFTRI Area", 12.3280, 76.6350, 5, 10.0, 19.0, 0.20, 14000),
+        ("VJ", "Vijayanagar / Industrial Suburb", 12.3300, 76.5920, 2, 32.0, 26.5, 0.58, 25000),
+        ("HG", "Hootagalli / Metagalli", 12.3600, 76.5850, 3, 48.0, 32.0, 0.75, 20000),
+        ("HB", "Hebbal / Industrial Area", 12.3600, 76.6350, 3, 40.0, 29.0, 0.62, 22000),
+        ("SRP", "Srirampura / Bannimantap", 12.3400, 76.6620, 2, 45.0, 31.0, 0.72, 30000),
+        ("KN", "Kuvempunagar / Dattagalli", 12.2750, 76.6250, 3, 28.0, 24.0, 0.50, 20000),
+        ("BG", "Bogadi / J.P. Nagar", 12.2700, 76.5900, 4, 20.0, 23.0, 0.42, 15000),
+    ]
+
     if os.path.exists(WARDS_CSV):
         try:
             temp_df = pd.read_csv(WARDS_CSV)
@@ -120,7 +141,24 @@ def init_databases():
         ]
         pd.DataFrame(wards_master, columns=cols).to_csv(WARDS_CSV, index=False)
 
+    if os.path.exists(MYSORE_WARDS_CSV):
+        try:
+            temp_df = pd.read_csv(MYSORE_WARDS_CSV)
+            if "green_cover_score_1_to_5" not in temp_df.columns:
+                os.remove(MYSORE_WARDS_CSV)
+        except Exception:
+            os.remove(MYSORE_WARDS_CSV)
+
+    if not os.path.exists(MYSORE_WARDS_CSV):
+        pd.DataFrame(mysore_wards_master, columns=cols).to_csv(MYSORE_WARDS_CSV, index=False)
+
     for w in wards_master:
+        cursor.execute(
+            "INSERT OR IGNORE INTO deployed_interventions (ward_id, last_updated) VALUES (?, ?)",
+            (w[0], datetime.now().strftime("%Y-%m-%d %H:%M")),
+        )
+
+    for w in mysore_wards_master:
         cursor.execute(
             "INSERT OR IGNORE INTO deployed_interventions (ward_id, last_updated) VALUES (?, ?)",
             (w[0], datetime.now().strftime("%Y-%m-%d %H:%M")),
@@ -156,6 +194,15 @@ if "green_cover_score_1_to_5" not in df_wards_master.columns:
         ).clip(1, 5)
     else:
         df_wards_master["green_cover_score_1_to_5"] = 3.0
+
+df_mysore_master = pd.read_csv(MYSORE_WARDS_CSV)
+if "green_cover_score_1_to_5" not in df_mysore_master.columns:
+    if "green_cover_pct" in df_mysore_master.columns:
+        df_mysore_master["green_cover_score_1_to_5"] = (
+            df_mysore_master["green_cover_pct"] / 20.0
+        ).clip(1, 5)
+    else:
+        df_mysore_master["green_cover_score_1_to_5"] = 3.0
 
 if os.path.exists(XGB_MODEL_PATH):
     xgb_model = joblib.load(XGB_MODEL_PATH)
@@ -306,7 +353,8 @@ def commit(req: CommitReq):
 def optimize(req: dict):
     budget = int(req.get("budget", 5000000))
     surge = float(req.get("heatwave_surge_c", 6.0))
-    df = df_wards_master.copy()
+    city = req.get("city", "mumbai")
+    df = df_wards_master.copy() if city == "mumbai" else df_mysore_master.copy()
 
     conn = sqlite3.connect(SQLITE_DB)
     df_inst = pd.read_sql_query("SELECT * FROM deployed_interventions", conn)
@@ -337,22 +385,29 @@ def optimize(req: dict):
 
     wbgt_vals, hmri_before_vals = [], []
     for _, w in df.iterrows():
-        inland = (w["lon"] - 72.82) * 8.0
+        if city == "mumbai":
+            inland = (w["lon"] - 72.82) * 8.0
+            base_temp = 25.0
+        else:
+            inland = (w["lon"] - 76.62) * 10.0
+            base_temp = 24.5
         cooling = (
             w["shade_shelter_Installed"] * 0.4
             + w["plaza_sprinkler_Installed"] * 0.5
             + w["mist_fan_Installed"] * 0.3
         )
-        base_wbgt = round(25.0 + (inland * 0.1) + (surge * 0.3) - cooling, 2)
+        base_wbgt = round(base_temp + (inland * 0.1) + (surge * 0.3) - cooling, 2)
         wbgt_vals.append(base_wbgt)
 
         v_score = w["elderly_children_pct"] / 100.0
         e_score = w["low_income_score"]
         g_score = (6 - w["green_cover_score_1_to_5"]) / 5.0
         hazard = max(0.0, min(1.0, (base_wbgt - 22.0) / 9.0))
-        amplification = 0.40 + 0.20 * v_score + 0.10 * e_score + 0.10 * g_score
-        hmri = round(hazard * amplification * 85.0, 1)
-        hmri_before_vals.append(max(15.0, min(75.0, hmri)))
+        amplification = 0.50 + 0.25 * v_score + 0.15 * e_score + 0.10 * g_score
+        
+        # HMRI max scaled up to 100
+        hmri = round(hazard * amplification * 100.0, 1)
+        hmri_before_vals.append(max(15.0, min(100.0, hmri)))
 
     df["wbgt"] = wbgt_vals
     df["hmri_before_actions"] = hmri_before_vals
@@ -376,7 +431,6 @@ def optimize(req: dict):
     r_count, k_count, s_count, t_count = [0] * n, [0] * n, [0] * n, [0] * n
     spend = [0] * n
 
-    # Dynamic cost inputs from frontend request
     costs = {
         "cool_roof": int(req.get("cost_roof", 125000)),
         "water_kiosk": int(req.get("cost_kiosk", 75000)),
@@ -420,7 +474,7 @@ def optimize(req: dict):
         rem_budget -= cost
         spend[idx] += cost
 
-        reduction_amt = 5.0 if itype in ["cool_roof", "shade_shelter"] else 3.5
+        reduction_amt = 8.0 if itype in ["cool_roof", "shade_shelter"] else 5.0
         df_after_hmri.at[idx] = max(
             10.0, df_after_hmri.at[idx] - reduction_amt
         )
@@ -437,11 +491,11 @@ def optimize(req: dict):
     for i in range(n):
         if df_after_hmri.at[i] == df.at[i, "hmri_before_actions"]:
             df_after_hmri.at[i] = max(
-                10.0, df_after_hmri.at[i] - 2.0
+                10.0, df_after_hmri.at[i] - 3.0
             )
 
     df["hmri_after_actions"] = np.round(
-        np.minimum(df["hmri_before_actions"] - 1.0, df_after_hmri), 1
+        np.minimum(df["hmri_before_actions"] - 2.0, df_after_hmri), 1
     )
 
     actions_text, action_items, past_text = [], [], []
@@ -538,3 +592,22 @@ def optimize(req: dict):
         },
         "wards": df.to_dict(orient="records"),
     }
+
+
+@app.get("/api/cities")
+def get_cities():
+    return {
+        "cities": [
+            {"id": "mumbai", "name": "Mumbai", "wards": len(df_wards_master)},
+            {"id": "mysore", "name": "Mysuru (Mysore)", "wards": len(df_mysore_master)},
+        ]
+    }
+
+
+FRONTEND_DIR = os.path.join(os.path.dirname(BASE_DIR), "frontend")
+if os.path.exists(FRONTEND_DIR):
+    @app.get("/")
+    def serve_index():
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+
+    app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")

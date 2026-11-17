@@ -99,11 +99,15 @@
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center justify-center text-sm shadow">CBC</div>
         <div>
-          <h1 class="text-sm font-bold text-white">Cool Block Commander • Mumbai GIS Command Center</h1>
+          <h1 id="headerTitle" class="text-sm font-bold text-white">Cool Block Commander • Mumbai GIS Command Center</h1>
           <p id="headerSub" class="text-[11px] text-slate-400">Authenticated Officer: <span id="activeOfficerSpan" class="text-amber-400 font-bold">--</span></p>
         </div>
       </div>
       <div class="flex items-center gap-3">
+        <select id="citySelector" onchange="switchCity(this.value)" class="bg-slate-800 border border-slate-600 text-white text-xs font-bold px-3 py-2 rounded-lg cursor-pointer">
+          <option value="mumbai">🏙️ Mumbai (24 Wards)</option>
+          <option value="mysore">🏛️ Mysuru / Mysore (15 Zones)</option>
+        </select>
         <button onclick="openBudgetModal()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-lg text-xs shadow flex items-center gap-1.5">
           <span>🔒 Allocate Budget</span>
         </button>
@@ -193,8 +197,8 @@
         <div class="lg:col-span-7 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
             <div>
-              <h2 class="text-base font-bold text-slate-900">Mumbai 24-Ward GIS Heat-Risk Map</h2>
-              <p class="text-xs text-slate-500">Official GeoJSON Boundary Render Engine</p>
+              <h2 id="mapTitle" class="text-base font-bold text-slate-900">Mumbai 24-Ward GIS Heat-Risk Map</h2>
+              <p id="mapSubtitle" class="text-xs text-slate-500">Official GeoJSON Boundary Render Engine</p>
             </div>
             <div class="flex gap-1 bg-slate-100 p-1 rounded-lg text-xs font-bold">
               <button onclick="setMapMode('before')" id="btnBefore" class="px-2.5 py-1 rounded bg-white shadow-sm">HMRI Before</button>
@@ -353,14 +357,44 @@
 
   <!-- FRONTEND SCRIPT -->
   <script>
-    const API = "http://127.0.0.1:8000";
+    const API = (window.location.origin && window.location.origin.startsWith("http")) 
+      ? window.location.origin 
+      : "http://127.0.0.1:8000";
     const GEOJSON_URL = "https://raw.githubusercontent.com/urbanmorph/notf/main/website/public/assets/data/boundaries/mumbai-wards.geojson";
     
     let map = null, wardGeoJsonLayer = null, wardsData = [], selectedId = null, mapMode = "after";
     let cachedGeoJson = null;
     let checklistViewMode = "all";
+    let currentCity = "mumbai";
 
     function formatINR(n) { return "₹" + Number(n).toLocaleString("en-IN"); }
+
+    function switchCity(city) {
+      currentCity = city;
+      selectedId = null;
+      const isMumbai = city === "mumbai";
+      document.getElementById("headerTitle").innerText = isMumbai
+        ? "Cool Block Commander • Mumbai GIS Command Center"
+        : "Cool Block Commander • Mysuru (MCC) GIS Command Center";
+      document.getElementById("mapTitle").innerText = isMumbai
+        ? "Mumbai 24-Ward GIS Heat-Risk Map"
+        : "Mysuru (Mysore) 15-Zone GIS Heat-Risk Map";
+      document.getElementById("mapSubtitle").innerText = isMumbai
+        ? "Official GeoJSON Boundary Render Engine"
+        : "MCC 15-Zone Contiguous Tessellation GIS Engine";
+
+      if (map) {
+        if (isMumbai) {
+          map.setView([19.0760, 72.8777], 10);
+        } else {
+          map.setView([12.3120, 76.6420], 12);
+        }
+      }
+      runOptimization();
+    }
+
+    const MYSORE_GEOJSON = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"ward_id": "DR", "ward": "DR", "NAME": "Devaraja Mohalla / Fort Area", "name": "DR", "area_name": "Devaraja Mohalla / Fort Area", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.662868, 12.315289], [76.644351, 12.309117], [76.646833, 12.302167], [76.663849, 12.297913], [76.66887, 12.31186], [76.662868, 12.315289]]]}}, {"type": "Feature", "properties": {"ward_id": "CR", "ward": "CR", "NAME": "Chamaraja Mohalla / Mandi Mohalla", "name": "CR", "area_name": "Chamaraja Mohalla / Mandi Mohalla", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.662868, 12.315289], [76.6505, 12.33075], [76.649786, 12.331107], [76.636886, 12.314982], [76.644351, 12.309117], [76.662868, 12.315289]]]}}, {"type": "Feature", "properties": {"ward_id": "KR", "ward": "KR", "NAME": "Krishnaraja Mohalla / Agrahara", "name": "KR", "area_name": "Krishnaraja Mohalla / Agrahara", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.663849, 12.297913], [76.669073, 12.249153], [76.666474, 12.248782], [76.636614, 12.286108], [76.646833, 12.302167], [76.663849, 12.297913]]]}}, {"type": "Feature", "properties": {"ward_id": "NR", "ward": "NR", "NAME": "N.R. Mohalla / Ashoka Road", "name": "NR", "area_name": "N.R. Mohalla / Ashoka Road", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.662868, 12.315289], [76.6505, 12.33075], [76.7015, 12.3435], [76.713709, 12.331291], [76.66887, 12.31186], [76.662868, 12.315289]]]}}, {"type": "Feature", "properties": {"ward_id": "NZ", "ward": "NZ", "NAME": "Nazarbad / Chamundi Hill Road", "name": "NZ", "area_name": "Nazarbad / Chamundi Hill Road", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.675, 12.25], [76.71, 12.275], [76.725, 12.305], [76.715, 12.33], [76.713709, 12.331291], [76.66887, 12.31186], [76.663849, 12.297913], [76.669073, 12.249153], [76.675, 12.25]]]}}, {"type": "Feature", "properties": {"ward_id": "LP", "ward": "LP", "NAME": "Lakshmipuram / Vontikoppal", "name": "LP", "area_name": "Lakshmipuram / Vontikoppal", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.644351, 12.309117], [76.636886, 12.314982], [76.633527, 12.314466], [76.6315, 12.311714], [76.6315, 12.288759], [76.636614, 12.286108], [76.646833, 12.302167], [76.644351, 12.309117]]]}}, {"type": "Feature", "properties": {"ward_id": "SP", "ward": "SP", "NAME": "Saraswathipuram / Contour Road", "name": "SP", "area_name": "Saraswathipuram / Contour Road", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.6315, 12.311714], [76.595167, 12.301333], [76.593915, 12.299903], [76.605316, 12.287789], [76.6315, 12.288759], [76.6315, 12.311714]]]}}, {"type": "Feature", "properties": {"ward_id": "JL", "ward": "JL", "NAME": "Jayalakshmipuram / University", "name": "JL", "area_name": "Jayalakshmipuram / University", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.633527, 12.314466], [76.613962, 12.338923], [76.595167, 12.301333], [76.6315, 12.311714], [76.633527, 12.314466]]]}}, {"type": "Feature", "properties": {"ward_id": "GK", "ward": "GK", "NAME": "Gokulam / CFTRI Area", "name": "GK", "area_name": "Gokulam / CFTRI Area", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.649786, 12.331107], [76.644056, 12.344], [76.614198, 12.344], [76.613962, 12.338923], [76.633527, 12.314466], [76.636886, 12.314982], [76.649786, 12.331107]]]}}, {"type": "Feature", "properties": {"ward_id": "VJ", "ward": "VJ", "NAME": "Vijayanagar / Industrial Suburb", "name": "VJ", "area_name": "Vijayanagar / Industrial Suburb", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.614198, 12.344], [76.61, 12.350017], [76.561211, 12.338633], [76.56, 12.335], [76.565, 12.305], [76.566393, 12.30082], [76.593915, 12.299903], [76.595167, 12.301333], [76.613962, 12.338923], [76.614198, 12.344]]]}}, {"type": "Feature", "properties": {"ward_id": "HG", "ward": "HG", "NAME": "Hootagalli / Metagalli", "name": "HG", "area_name": "Hootagalli / Metagalli", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.57, 12.365], [76.561211, 12.338633], [76.61, 12.350017], [76.61, 12.38], [76.6, 12.38], [76.57, 12.365]]]}}, {"type": "Feature", "properties": {"ward_id": "HB", "ward": "HB", "NAME": "Hebbal / Industrial Area", "name": "HB", "area_name": "Hebbal / Industrial Area", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.61, 12.350017], [76.614198, 12.344], [76.644056, 12.344], [76.666267, 12.373986], [76.665, 12.375], [76.635, 12.38], [76.61, 12.38], [76.61, 12.350017]]]}}, {"type": "Feature", "properties": {"ward_id": "SRP", "ward": "SRP", "NAME": "Srirampura / Bannimantap", "name": "SRP", "area_name": "Srirampura / Bannimantap", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.644056, 12.344], [76.649786, 12.331107], [76.6505, 12.33075], [76.7015, 12.3435], [76.69, 12.355], [76.666267, 12.373986], [76.644056, 12.344]]]}}, {"type": "Feature", "properties": {"ward_id": "KN", "ward": "KN", "NAME": "Kuvempunagar / Dattagalli", "name": "KN", "area_name": "Kuvempunagar / Dattagalli", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.64, 12.245], [76.666474, 12.248782], [76.636614, 12.286108], [76.6315, 12.288759], [76.605316, 12.287789], [76.610213, 12.253511], [76.64, 12.245]]]}}, {"type": "Feature", "properties": {"ward_id": "BG", "ward": "BG", "NAME": "Bogadi / J.P. Nagar", "name": "BG", "area_name": "Bogadi / J.P. Nagar", "city": "mysore"}, "geometry": {"type": "Polygon", "coordinates": [[[76.575, 12.275], [76.605, 12.255], [76.610213, 12.253511], [76.605316, 12.287789], [76.593915, 12.299903], [76.566393, 12.30082], [76.575, 12.275]]]}}]};
+    let cachedMysoreGeoJson = MYSORE_GEOJSON;
 
     function switchAuthTab(tab) {
       if (tab === 'login') {
@@ -461,7 +495,9 @@
     }
 
     function renderMapGeoJson() {
-      if (!map || !cachedGeoJson) return;
+      if (!map) return;
+      const geoData = currentCity === "mumbai" ? cachedGeoJson : cachedMysoreGeoJson;
+      if (!geoData) return;
       if (wardGeoJsonLayer) {
         map.removeLayer(wardGeoJsonLayer);
       }
@@ -472,30 +508,32 @@
         predictionMap.set(normalizeName(w.area_name), w);
       });
 
-      wardGeoJsonLayer = L.geoJSON(cachedGeoJson, {
+      wardGeoJsonLayer = L.geoJSON(geoData, {
         style: function(feature) {
           const props = feature.properties || {};
-          const wardName = props.NAME || props.name || props.ward || props.ward_id || "";
-          const matched = predictionMap.get(normalizeName(wardName)) || {};
+          const wardKey = props.ward_id || props.ward || props.name || props.NAME || "";
+          const matched = predictionMap.get(normalizeName(wardKey)) || predictionMap.get(normalizeName(props.NAME)) || {};
           
           const score = mapMode === "before" 
             ? (matched.hmri_before_actions ?? 50) 
             : (matched.hmri_after_actions ?? 40);
           
           const isSel = matched.ward_id === selectedId;
-          const color = score >= 75 ? "#dc2626" : (score >= 60 ? "#ea580c" : (score >= 45 ? "#eab308" : "#10b981"));
+          
+          // Updated risk thresholds: < 25 is Emerald Green, >= 25 is Amber/Yellow/Red
+          const color = score >= 75 ? "#dc2626" : (score >= 45 ? "#ea580c" : (score >= 25 ? "#eab308" : "#10b981"));
 
           return {
             color: isSel ? "#fbbf24" : "#ffffff",
-            weight: isSel ? 4 : 1,
+            weight: isSel ? 3.5 : 1.5,
             fillColor: color,
-            fillOpacity: isSel ? 0.9 : 0.65
+            fillOpacity: isSel ? 0.88 : 0.65
           };
         },
         onEachFeature: function(feature, layer) {
           const props = feature.properties || {};
-          const wardName = props.NAME || props.name || props.ward || props.ward_id || "";
-          const matched = predictionMap.get(normalizeName(wardName));
+          const wardKey = props.ward_id || props.ward || props.name || props.NAME || "";
+          const matched = predictionMap.get(normalizeName(wardKey)) || predictionMap.get(normalizeName(props.NAME));
 
           if (matched) {
             const score = mapMode === "before" ? matched.hmri_before_actions : matched.hmri_after_actions;
@@ -505,11 +543,29 @@
             layer.on({
               click: function() {
                 selectWard(matched.ward_id, true);
+              },
+              mouseover: function(e) {
+                const l = e.target;
+                if (matched.ward_id !== selectedId) {
+                  l.setStyle({ weight: 3, color: '#38bdf8' });
+                }
+              },
+              mouseout: function(e) {
+                if (wardGeoJsonLayer) {
+                  wardGeoJsonLayer.resetStyle(e.target);
+                }
               }
             });
           }
         }
       }).addTo(map);
+
+      // Fit whole city boundary if no ward is currently selected
+      if (wardGeoJsonLayer && wardGeoJsonLayer.getLayers().length > 0) {
+        if (!selectedId) {
+          map.fitBounds(wardGeoJsonLayer.getBounds(), { padding: [20, 20] });
+        }
+      }
     }
 
     async function runOptimization() {
@@ -529,6 +585,7 @@
         const res = await fetch(`${API}/optimize`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
+            city: currentCity,
             budget, heatwave_surge_c: surge, 
             cost_roof: costRoof, cost_kiosk: costKiosk, cost_shade: costShade,
             cost_trees: costTrees, cost_virts: costVirts, cost_sprink: costSprink,
@@ -556,7 +613,7 @@
 
         populateDropdown();
         renderChecklist();
-        if (cachedGeoJson) renderMapGeoJson();
+        if (currentCity === "mysore" || cachedGeoJson) renderMapGeoJson();
         selectWard(selectedId || wardsData[0].ward_id, false);
       } catch (e) { console.error(e); }
     }
@@ -591,9 +648,9 @@
 
       if (fly && map) {
         setTimeout(() => map.invalidateSize(), 50);
-        map.flyTo([w.lat, w.lon], 12, { duration: 0.5 });
+        map.flyTo([w.lat, w.lon], currentCity === "mumbai" ? 12 : 13.5, { duration: 0.5 });
       }
-      if (cachedGeoJson) renderMapGeoJson();
+      renderMapGeoJson();
     }
 
     function setChecklistView(mode) {
