@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": null,
+  "outputDirectory": "frontend",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://heat-cdd-backend.onrender.com/api/:path*"
+    },
+    {
+      "source": "/optimize",
+      "destination": "https://heat-cdd-backend.onrender.com/optimize"
+    }
+  ]
+}
