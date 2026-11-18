@@ -28,36 +28,10 @@
 
 > **Please note:** This is a demonstration prototype. The current optimizer uses simplified heuristic calculations and sample ward-profile data. The scores and simulated intervention reductions are not validated public-health predictions, and the metric values shown in the UI should not be treated as independently verified model performance. Do not use this project as the sole basis for real emergency, health, or budget decisions.
 
-## Run locally
-
-**Requirements:** Python 3.10+ and pip.
-
-```bash
-git clone https://github.com/r-samarth/heat-CDD.git
-cd heat-CDD
-
-python -m venv .venv
-```
 
 Activate the environment:
 
-```bash
-# macOS / Linux
-source .venv/bin/activate
 
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
-```
-
-Install dependencies and start the API:
-
-```bash
-pip install -r requirements.txt
-cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Open **http://127.0.0.1:8000** for the dashboard or **http://127.0.0.1:8000/docs** for the interactive API documentation.
 
 ## Deploy
 
