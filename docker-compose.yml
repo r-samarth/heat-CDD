@@ -1,0 +1,60 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: heat-cdd-backend
+    restart: unless-stopped
+    volumes:
+      - heat_cdd_data:/app/backend/data
+    # Keep the API reachable from this computer for local Swagger testing,
+    # but do not expose it directly to the public internet.
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=5)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: heat-cdd-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Local access is http://localhost:8080. On a VPS, Caddy is the public
+    # entry point and this binding keeps the frontend private to the host.
+    ports:
+      - "127.0.0.1:8080:80"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: heat-cdd-caddy
+    profiles: ["production"]
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-}
+    depends_on:
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  heat_cdd_data:
+  caddy_data:
+  caddy_config:
