@@ -610,4 +610,18 @@ if os.path.exists(FRONTEND_DIR):
     def serve_index():
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
+    @app.get("/logo.png")
+    def serve_logo():
+        logo_path = os.path.join(FRONTEND_DIR, "logo.png")
+        if os.path.exists(logo_path):
+            return FileResponse(logo_path)
+        return {"error": "Logo not found"}
+
+    @app.get("/logo.svg")
+    def serve_logo_svg():
+        svg_path = os.path.join(FRONTEND_DIR, "logo.svg")
+        if os.path.exists(svg_path):
+            return FileResponse(svg_path, media_type="image/svg+xml")
+        return {"error": "SVG Logo not found"}
+
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
